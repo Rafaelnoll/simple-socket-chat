@@ -1,3 +1,4 @@
 node_modules
-client/index.js
-*.md
+client/
+test/
+README.md
