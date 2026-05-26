@@ -13,12 +13,37 @@ function ask(question) {
 }
 
 async function main() {
-  const name = await ask("Seu nome: ");
+  let name = "";
+
+  try {
+    name = (await ask("Seu nome: ")).trim();
+  } catch (error) {
+    console.error("[Erro] Falha ao ler o nome:", error.message);
+    terminal.close();
+    process.exit(1);
+  }
+
+  if (!name) {
+    console.error("[Erro] Nome inválido. Reinicie e informe um nome válido.");
+    terminal.close();
+    process.exit(1);
+  }
+
   const socket = io(`http://${host}:${port}`);
 
   socket.on("connect", () => {
     console.log("Conectado!");
-    socket.emit("join", name.trim());
+    socket.emit("join", name);
+  });
+
+  socket.on("connect_error", (error) => {
+    console.error("[Erro] Não foi possível conectar ao servidor:", error.message);
+    terminal.close();
+    process.exit(1);
+  });
+
+  socket.on("validation", (message) => {
+    console.error(`[Erro] ${message}`);
   });
 
   socket.on("message", (message) => {
@@ -31,10 +56,17 @@ async function main() {
 
   terminal.on("line", (line) => {
     const text = line.trim();
-    if (!text) return;
+    if (!text) {
+      console.log("[Aviso] Digite uma mensagem antes de enviar.");
+      return;
+    }
 
     socket.emit("message", text);
   });
 }
 
-main();
+main().catch((error) => {
+  console.error("[Erro] Falha inesperada:", error.message);
+  terminal.close();
+  process.exit(1);
+});
