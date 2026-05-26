@@ -1,8 +1,11 @@
 import { createInterface } from "readline";
 import { io } from "socket.io-client";
 import chalk from "chalk";
+import "dotenv/config";
 
-const [, , host = "localhost", port = "3000"] = process.argv;
+const host = process.env.SERVER_HOST ?? "localhost";
+const port = process.env.SERVER_PORT ?? "3000";
+const protocol = host.includes("localhost") ? "http" : "https";
 
 const terminal = createInterface({
   input: process.stdin,
@@ -47,7 +50,7 @@ async function main() {
     process.exit(1);
   }
 
-  const socket = io(`http://${host}:${port}`);
+  const socket = io(`${protocol}://${host}`, { port: parseInt(port) });
 
   socket.on("connect", () => {
     console.log(
