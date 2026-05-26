@@ -6,10 +6,20 @@ const [, , host = "localhost", port = "3000"] = process.argv;
 const terminal = createInterface({
   input: process.stdin,
   output: process.stdout,
+  prompt: "> ",
 });
 
 function ask(question) {
   return new Promise((res) => terminal.question(question, res));
+}
+
+// Imprime uma linha nova no chat sem quebrar o prompt atual.
+// Limpa a linha atual, exibe a mensagem e reexibe o prompt.
+function printChatLine(text) {
+  process.stdout.clearLine(0);
+  process.stdout.cursorTo(0);
+  console.log(text);
+  terminal.prompt(true);
 }
 
 async function main() {
@@ -33,6 +43,7 @@ async function main() {
 
   socket.on("connect", () => {
     console.log("Conectado!");
+    terminal.prompt();
     socket.emit("join", name);
   });
 
@@ -43,25 +54,26 @@ async function main() {
   });
 
   socket.on("validation", (message) => {
-    console.error(`[Erro] ${message}`);
+    printChatLine(`[Erro] ${message}`);
   });
 
   socket.on("message", (message) => {
-    console.log(`${message.from}: ${message.text}`);
+    printChatLine(`${message.from}: ${message.text}`);
   });
 
   socket.on("system", (message) => {
-    console.log(`[Sistema] ${message}`);
+    printChatLine(`[Sistema] ${message}`);
   });
 
   terminal.on("line", (line) => {
     const text = line.trim();
     if (!text) {
-      console.log("[Aviso] Digite uma mensagem antes de enviar.");
+      printChatLine("[Aviso] Digite uma mensagem antes de enviar.");
       return;
     }
 
     socket.emit("message", text);
+    terminal.prompt();
   });
 }
 
