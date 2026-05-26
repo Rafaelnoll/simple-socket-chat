@@ -1,20 +1,19 @@
 import { createInterface } from "readline";
 import { io } from "socket.io-client";
+import chalk from "chalk";
 
 const [, , host = "localhost", port = "3000"] = process.argv;
 
 const terminal = createInterface({
   input: process.stdin,
   output: process.stdout,
-  prompt: "> ",
+  prompt: chalk.cyan.bold("> "),
 });
 
 function ask(question) {
   return new Promise((res) => terminal.question(question, res));
 }
 
-// Imprime uma linha nova no chat sem quebrar o prompt atual.
-// Limpa a linha atual, exibe a mensagem e reexibe o prompt.
 function printChatLine(text) {
   process.stdout.clearLine(0);
   process.stdout.cursorTo(0);
@@ -22,19 +21,28 @@ function printChatLine(text) {
   terminal.prompt(true);
 }
 
+function formatTime(isoString) {
+  return new Date(isoString).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 async function main() {
   let name = "";
 
   try {
-    name = (await ask("Seu nome: ")).trim();
+    name = (await ask(chalk.bold("Seu nome: "))).trim();
   } catch (error) {
-    console.error("[Erro] Falha ao ler o nome:", error.message);
+    console.error(chalk.red("[Erro] Falha ao ler o nome:"), error.message);
     terminal.close();
     process.exit(1);
   }
 
   if (!name) {
-    console.error("[Erro] Nome inválido. Reinicie e informe um nome válido.");
+    console.error(
+      chalk.red("[Erro] Nome inválido. Reinicie e informe um nome válido."),
+    );
     terminal.close();
     process.exit(1);
   }
@@ -42,33 +50,58 @@ async function main() {
   const socket = io(`http://${host}:${port}`);
 
   socket.on("connect", () => {
-    console.log("Conectado!");
+    console.log(
+      chalk.green.bold("✓ Conectado!") + chalk.dim(` (${host}:${port})`),
+    );
     terminal.prompt();
     socket.emit("join", name);
   });
 
   socket.on("connect_error", (error) => {
-    console.error("[Erro] Não foi possível conectar ao servidor:", error.message);
+    console.error(
+      chalk.red("[Erro] Não foi possível conectar:"),
+      error.message,
+    );
     terminal.close();
     process.exit(1);
   });
 
   socket.on("validation", (message) => {
-    printChatLine(`[Erro] ${message}`);
+    printChatLine(chalk.red(`[Erro] ${message}`));
   });
 
   socket.on("message", (message) => {
-    printChatLine(`${message.from}: ${message.text}`);
+    const time = chalk.dim(formatTime(message.at));
+    const isMe = message.from === name;
+
+    const sender = isMe
+      ? chalk.green.bold(message.from)
+      : chalk.blue.bold(message.from);
+
+    const text = isMe
+      ? chalk.white(message.text)
+      : chalk.whiteBright(message.text);
+
+    printChatLine(`${time} ${sender}: ${text}`);
   });
 
   socket.on("system", (message) => {
-    printChatLine(`[Sistema] ${message}`);
+    printChatLine(chalk.yellow.dim(`  ⬡ ${message}`));
+  });
+
+  socket.on("users", (users) => {
+    const list = users
+      .map((u) => (u === name ? chalk.green(u) : chalk.blue(u)))
+      .join(chalk.dim(", "));
+    printChatLine(chalk.dim("  online: ") + list);
   });
 
   terminal.on("line", (line) => {
     const text = line.trim();
     if (!text) {
-      printChatLine("[Aviso] Digite uma mensagem antes de enviar.");
+      printChatLine(
+        chalk.yellow.dim("[Aviso] Digite uma mensagem antes de enviar."),
+      );
       return;
     }
 
@@ -78,7 +111,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("[Erro] Falha inesperada:", error.message);
+  console.error(chalk.red("[Erro] Falha inesperada:"), error.message);
   terminal.close();
   process.exit(1);
 });
